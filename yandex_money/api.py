@@ -43,7 +43,7 @@ class Wallet(BasePayment):
         self.access_token = access_token
 
     def _send_authenticated_request(self, url, options=None):
-        return self.send_request(url, options)
+        return self.send_request(url, body = options)
 
     def account_info(self):
         """
