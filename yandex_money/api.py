@@ -7,7 +7,7 @@ from . import exceptions
 
 # change it to debug/demo hosts
 config = {
-    'MONEY_URL': "https://money.yandex.ru",
+    'MONEY_URL': "https://yoomoney.ru",
 }
 
 
