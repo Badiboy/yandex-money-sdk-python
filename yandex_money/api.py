@@ -12,6 +12,10 @@ config = {
 
 
 class BasePayment(object):
+    def __init__(self):
+        self.access_token = None
+        self.timeout = None
+
     def send_request(self, url, headers=None, body=None):
         if not headers:
             headers = {}
@@ -24,7 +28,7 @@ class BasePayment(object):
             body = {}
         full_url = config['MONEY_URL'] + url
         return self.process_result(
-            requests.post(full_url, headers=headers, data=body)
+            requests.post(full_url, headers=headers, data=body, timeout=self.timeout)
         )
 
     @classmethod
@@ -39,8 +43,10 @@ class BasePayment(object):
 
 
 class Wallet(BasePayment):
-    def __init__(self, access_token):
+    def __init__(self, access_token, timeout=None):
+        super().__init__()
         self.access_token = access_token
+        self.timeout = timeout
 
     def _send_authenticated_request(self, url, options=None):
         return self.send_request(url, body = options)
@@ -76,8 +82,7 @@ class Wallet(BasePayment):
             https://tech.yandex.ru/money/doc/dg/reference/operation-history-docpage/
 
             Args:
-                options: A dictionary with filter parameters according to
-                documetation
+                options: A dictionary with filter parameters according to documetation
 
             Returns:
                 A dictionary containing user's wallet operations.
@@ -235,8 +240,7 @@ class Wallet(BasePayment):
                                               }))
 
     @classmethod
-    def get_access_token(self, client_id, code, redirect_uri,
-                         client_secret=None):
+    def get_access_token(self, client_id, code, redirect_uri, client_secret=None, timeout=None):
         full_url = config['MONEY_URL'] + "/oauth/token"
         return self.process_result(requests.post(full_url, data={
             "code": code,
@@ -244,7 +248,8 @@ class Wallet(BasePayment):
             "grant_type": "authorization_code",
             "redirect_uri": redirect_uri,
             "client_secret": client_secret
-            }
+            },
+            timeout=timeout
         ))
 
     @classmethod
