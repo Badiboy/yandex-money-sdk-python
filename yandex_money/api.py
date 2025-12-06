@@ -15,6 +15,7 @@ class BasePayment(object):
     def __init__(self):
         self.access_token = None
         self.timeout = None
+        self.proxies = None
 
     def send_request(self, url, headers=None, body=None):
         if not headers:
@@ -28,7 +29,7 @@ class BasePayment(object):
             body = {}
         full_url = config['MONEY_URL'] + url
         return self.process_result(
-            requests.post(full_url, headers=headers, data=body, timeout=self.timeout)
+            requests.post(full_url, headers=headers, data=body, timeout=self.timeout, proxies=self.proxies)
         )
 
     @classmethod
@@ -43,10 +44,11 @@ class BasePayment(object):
 
 
 class Wallet(BasePayment):
-    def __init__(self, access_token, timeout=None):
+    def __init__(self, access_token, timeout=None, proxies=None):
         super().__init__()
         self.access_token = access_token
         self.timeout = timeout
+        self.proxies = proxies
 
     def _send_authenticated_request(self, url, options=None):
         return self.send_request(url, body = options)
@@ -230,7 +232,7 @@ class Wallet(BasePayment):
             })
 
     @classmethod
-    def build_obtain_token_url(self, client_id, redirect_uri, scope):
+    def build_obtain_token_url(cls, client_id, redirect_uri, scope):
         return "{}/oauth/authorize?{}".format(config['MONEY_URL'],
                                               urlencode({
                                                   "client_id": client_id,
@@ -240,20 +242,22 @@ class Wallet(BasePayment):
                                               }))
 
     @classmethod
-    def get_access_token(self, client_id, code, redirect_uri, client_secret=None, timeout=None):
+    def get_access_token(cls, client_id, code, redirect_uri, client_secret=None, timeout=None, proxies=None):
         full_url = config['MONEY_URL'] + "/oauth/token"
-        return self.process_result(requests.post(full_url, data={
-            "code": code,
-            "client_id": client_id,
-            "grant_type": "authorization_code",
-            "redirect_uri": redirect_uri,
-            "client_secret": client_secret
-            },
-            timeout=timeout
+        return cls.process_result(
+            requests.post(full_url, data={
+                "code": code,
+                "client_id": client_id,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+                "client_secret": client_secret
+                },
+                timeout=timeout,
+                proxies=proxies,
         ))
 
     @classmethod
-    def revoke_token(self, token=None, revoke_all=False):
+    def revoke_token(cls, token=None, revoke_all=False):
         """
             Revokes access token.
             http://api.yandex.com/money/doc/dg/reference/revoke-access-token.xml
@@ -261,6 +265,7 @@ class Wallet(BasePayment):
 
             Args:
                 token: A token to be revoked
+                revoke_all: ?If true, revokes all tokens issued to the application for the user?
 
             Returns:
                 None
@@ -273,13 +278,16 @@ class Wallet(BasePayment):
                 exceptions.ScopeError: The token does not have permissions for
                     the requested operation
         """
-        self.send_request("/api/revoke", body={
-            "revoke-all": revoke_all
-        }, headers={"Authorization": "Bearer {}".format(token)})
+        # noinspection PyArgumentList
+        cls.send_request(
+            "/api/revoke",
+            body={"revoke-all": revoke_all},
+            headers={"Authorization": "Bearer {}".format(token)})
 
 
 class ExternalPayment(BasePayment):
     def __init__(self, instance_id):
+        super().__init__()
         self.instance_id = instance_id
 
     @classmethod
@@ -295,9 +303,12 @@ class ExternalPayment(BasePayment):
             Returns:
                 A dictionary with status of an operation
         """
-        return cls.send_request("/api/instance-id", body={
-            "client_id": client_id
-        })
+        # noinspection PyArgumentList
+        return (
+            cls.send_request(
+                "/api/instance-id",
+                body={"client_id": client_id}
+            ))
 
     def request(self, options):
         """
